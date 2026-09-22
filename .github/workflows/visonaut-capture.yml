@@ -12,7 +12,7 @@ permissions:
   contents: read
 
 env:
-  VISONAUT_EXECUTOR_SOURCE: "4c16e466025df6553dae4e512e1fe1225d5bd58e"
+  VISONAUT_EXECUTOR_SOURCE: "756a5225af9bbcd466ef56d56abdee2843b897c9"
 
 jobs:
   capture:
