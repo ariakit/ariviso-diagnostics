@@ -1,4 +1,4 @@
-name: Ariviso runner profile probe
+name: Visonaut runner profile probe
 
 on:
   workflow_dispatch:
@@ -17,7 +17,7 @@ jobs:
       matrix:
         shard: [1, 2]
     env:
-      ARIVISO_SHARD: ${{ matrix.shard }}
+      VISONAUT_SHARD: ${{ matrix.shard }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -26,15 +26,15 @@ jobs:
         with:
           node-version: 24.18.0
       - run: npm ci --ignore-scripts --audit=false --fund=false
-        working-directory: .github/ariviso
+        working-directory: .github/visonaut
       - run: npx --no-install playwright install --with-deps chromium
-        working-directory: .github/ariviso
+        working-directory: .github/visonaut
       - name: Measure the actual synthetic capture environment
-        run: node .github/ariviso/environment.mjs
+        run: node .github/visonaut/environment.mjs
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: ariviso-environment-chromium-${{ matrix.shard }}-${{ github.run_attempt }}
-          path: .ariviso-results/environment-chromium-${{ matrix.shard }}.json
+          name: visonaut-environment-chromium-${{ matrix.shard }}-${{ github.run_attempt }}
+          path: .visonaut-results/environment-chromium-${{ matrix.shard }}.json
           retention-days: 7
           include-hidden-files: true
           if-no-files-found: error

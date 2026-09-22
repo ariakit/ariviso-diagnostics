@@ -3,9 +3,9 @@ import assert from "node:assert/strict";
 import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import { fetchScenario, sanitizeScenario, writeScenario } from "../.github/ariviso/scenario.mjs";
+import { fetchScenario, sanitizeScenario, writeScenario } from "../.github/visonaut/scenario.mjs";
 
-const repository = "ariakit/ariviso-diagnostics";
+const repository = "ariakit/visonaut-diagnostics";
 const testedSha = "a".repeat(40);
 const token = "fixture-read-token";
 const candidate = {
@@ -29,7 +29,7 @@ function options(value = file()) {
 }
 
 test("only the tested scenario is fetched and no candidate tooling file enters the workspace", async () => {
-  const root = await mkdtemp(path.join(os.tmpdir(), "ariviso-scenario-"));
+  const root = await mkdtemp(path.join(os.tmpdir(), "visonaut-scenario-"));
   try {
     const candidateDirectory = path.join(root, "candidate");
     const workspace = path.join(root, "capture");
@@ -38,7 +38,7 @@ test("only the tested scenario is fetched and no candidate tooling file enters t
     await writeFile(path.join(candidateDirectory, "scenario.json"), JSON.stringify(candidate));
     await writeFile(
       path.join(candidateDirectory, "package.json"),
-      JSON.stringify({ name: "hostile-workspace", workspaces: ["ariviso-harness"] }),
+      JSON.stringify({ name: "hostile-workspace", workspaces: ["visonaut-harness"] }),
     );
     await writeFile(
       path.join(candidateDirectory, "jsconfig.json"),
@@ -83,16 +83,16 @@ test("only the tested scenario is fetched and no candidate tooling file enters t
 
 test("the OIDC workflow checks out only the pinned trusted executor", async () => {
   const workflow = await readFile(
-    new URL("../.github/workflows/ariviso-capture.yml", import.meta.url),
+    new URL("../.github/workflows/visonaut-capture.yml", import.meta.url),
     "utf8",
   );
   const checkouts = [
     ...workflow.matchAll(/uses: actions\/checkout@[^\n]+\n([\s\S]*?)(?=\n      -)/g),
   ];
   assert.equal(checkouts.length, 1);
-  assert.match(checkouts[0][1], /repository: ariakit\/ariviso-diagnostics/);
-  assert.match(checkouts[0][1], /ref: \$\{\{ env\.ARIVISO_EXECUTOR_SOURCE \}\}/);
-  assert.match(checkouts[0][1], /path: \.ariviso-trusted/);
+  assert.match(checkouts[0][1], /repository: ariakit\/visonaut-diagnostics/);
+  assert.match(checkouts[0][1], /ref: \$\{\{ env\.VISONAUT_EXECUTOR_SOURCE \}\}/);
+  assert.match(checkouts[0][1], /path: \.visonaut-trusted/);
   assert.doesNotMatch(workflow, /ref: \$\{\{ github\.sha \}\}/);
   assert.equal([...workflow.matchAll(/GH_TOKEN: \$\{\{ github\.token \}\}/g)].length, 1);
 });
@@ -101,7 +101,7 @@ test("unknown scenario fields, nested values and invalid primitive values fail c
   for (const value of [
     null,
     [],
-    { ...candidate, package: { workspaces: ["ariviso-harness"] } },
+    { ...candidate, package: { workspaces: ["visonaut-harness"] } },
     { ...candidate, color: "url(https://example.invalid)" },
     { ...candidate, retrySecondTestOnce: "true" },
     { color: "blue" },
@@ -128,7 +128,7 @@ test("the scenario requires a full tested SHA, a regular fixed-path file, and ex
 
 test("oversized response streams are canceled and never produce a scenario file", async () => {
   let canceled = false;
-  const root = await mkdtemp(path.join(os.tmpdir(), "ariviso-scenario-limit-"));
+  const root = await mkdtemp(path.join(os.tmpdir(), "visonaut-scenario-limit-"));
   try {
     const response = new Response(
       new ReadableStream({
