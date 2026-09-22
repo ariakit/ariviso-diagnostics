@@ -1,0 +1,24 @@
+{
+  "repository": "ariakit/ariviso-diagnostics",
+  "repositoryId": "1380792062",
+  "workflow": ".github/workflows/ariviso-diagnostic.yml",
+  "server": "https://ariviso-diagnostics.ariakit.workers.dev",
+  "planPath": ".github/ariviso-plan.json",
+  "comparisonEngineVersion": "rgba-visible-1",
+  "comparisonPolicy": {
+    "id": "visible-exact-v1",
+    "channelThreshold": 0,
+    "maxChangedPixels": 0,
+    "maxChangedRatio": 0
+  },
+  "packages": {
+    "playwright": {
+      "sha256": "87b4489bb643404a0b761237aac37e4ef35342bcd0fcb67729c4c5c11075734d",
+      "urlEnvironment": "ARIVISO_PLAYWRIGHT_TARBALL_URL"
+    },
+    "cli": {
+      "sha256": "cd057b393481d35d11282ce6b87d78fe48c2e98c6f2e56f2ab3ea32e2b51eddd",
+      "urlEnvironment": "ARIVISO_CLI_TARBALL_URL"
+    }
+  }
+}

@@ -1,0 +1,6 @@
+ariviso-harness/node_modules/
+.ariviso-results/
+.ariviso-packages/
+.ariviso-trusted/
+.ariviso-test-results/
+.github/ariviso/node_modules/
