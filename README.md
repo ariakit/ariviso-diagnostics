@@ -41,3 +41,11 @@ Change only `scenario.json` for these cases. The fixed harness accepts `blue`, `
 Do not add image-bearing Playwright traces, reports, manifests, or diagnostic archives to public GitHub artifacts. The service and private export path provide that evidence. All queue-policy changes and required-check cutovers are separate operator actions.
 
 The bootstrap uses [GitHub reusable workflows](https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows) with explicit secrets and immutable commit references. Follow the [GitHub job rerun procedure](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/re-run-workflows-and-jobs) for the failed-job case.
+
+### Hosted OIDC rejection probes
+
+The manual `ariviso-oidc-negative.yml` workflow sends bounded requests to the diagnostic service. Its no-token job has no OIDC permission and must receive `401 credential_required`. Its other job requests real GitHub tokens in memory: a wrong audience must receive `401 invalid_oidc`, and a direct workflow outside the trusted reusable executor must receive `403 untrusted_run`.
+
+The untrusted job also tries a different repository identity and the trusted workflow's commit as its claimed tested SHA. These requests must remain rejected. They test the untrusted-workflow boundary; they do not independently exercise claim checks that occur after that boundary. No token, response body, capability, screenshot, or manifest is written to a file, artifact, or log. Output contains only fixed case labels, expected status/error codes, and the public workflow run ID and attempt. Local helper tests run on changes to the probe files.
+
+After a hosted run, the operator must verify that the private diagnostic database contains no run with the printed external workflow ID. This is a separate private check because the probe has no read capability. For example, run `SELECT count(*) FROM ariviso_runs WHERE external_run_id = '<printed workflow ID>';` through the authorized D1 operator path and require zero. Do not grant the public workflow database access. Keep this workflow separate from the required visual check, and do not dispatch it after the diagnostic service is retired at production cutover.
