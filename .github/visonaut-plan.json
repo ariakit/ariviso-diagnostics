@@ -1,0 +1,70 @@
+{
+  "schemaVersion": "1.0",
+  "repositoryId": "1380792062",
+  "workflow": ".github/workflows/visonaut-diagnostic.yml",
+  "invocation": [
+    "playwright",
+    "test",
+    "--config",
+    "visonaut-harness/playwright.config.mjs"
+  ],
+  "discovery": {
+    "executorDigest": "c59e391af0f6499ace9f73ae0b3593a96167e11948c001bbce70da58de8ee3a7"
+  },
+  "shards": [
+    {
+      "key": "chromium-1",
+      "jobName": "capture / chromium-1",
+      "collection": {
+        "projectName": "chromium",
+        "testDir": "visonaut-harness/tests",
+        "testMatch": [
+          "**/*.test.mjs"
+        ],
+        "testIgnore": [],
+        "grep": [
+          {
+            "source": ".*",
+            "flags": ""
+          }
+        ],
+        "grepInvert": [],
+        "shard": {
+          "current": 1,
+          "total": 2
+        },
+        "repeatEach": 1
+      },
+      "environmentProfileDigests": [
+        "ce5a245f7258db88f62f2e7c87067d26b22d5b15228fa4913be7d4b6562b3a36"
+      ]
+    },
+    {
+      "key": "chromium-2",
+      "jobName": "capture / chromium-2",
+      "collection": {
+        "projectName": "chromium",
+        "testDir": "visonaut-harness/tests",
+        "testMatch": [
+          "**/*.test.mjs"
+        ],
+        "testIgnore": [],
+        "grep": [
+          {
+            "source": ".*",
+            "flags": ""
+          }
+        ],
+        "grepInvert": [],
+        "shard": {
+          "current": 2,
+          "total": 2
+        },
+        "repeatEach": 1
+      },
+      "environmentProfileDigests": [
+        "ce5a245f7258db88f62f2e7c87067d26b22d5b15228fa4913be7d4b6562b3a36"
+      ]
+    }
+  ]
+}
