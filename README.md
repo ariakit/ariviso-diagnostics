@@ -10,9 +10,9 @@ Create two independent pull requests with small text changes to exercise the que
 
 ## Visonaut end-to-end diagnostics
 
-The capture harness uses synthetic colored cards and reviewed client-package tarballs. This repository contains no private application source, capture archive, service credentials, or production images. The service keeps manifests and image uploads private. GitHub receives only the small synthetic discovery receipt and the runner profile probe.
+The capture harness uses synthetic colored cards and reviewed client-package tarballs. This repository contains no private application source, capture archive, service credentials, or production images. The service keeps manifests and image uploads private. GitHub receives only the small synthetic discovery receipt and measured runner profiles.
 
-The capture uses two fixed Chromium shards. Each shard must capture its entire assigned test collection. The workflow binds the uploaded manifest to a successful job through its receipt artifact name. The server verifies the OIDC token, exact job, attempt, tested SHA, trusted plan, complete inventory, and independent artifact metadata.
+The capture uses two fixed Chromium shards. Each shard must capture its entire assigned test collection. Each job uploads its measured runner profile before capture validation so an unregistered image can be inspected without accepting its pixels. The workflow binds the uploaded manifest to a successful job through its separate receipt artifact name. The server verifies the OIDC token, exact job, attempt, tested SHA, trusted plan, complete inventory, and independent artifact metadata.
 
 ### Bootstrap
 
