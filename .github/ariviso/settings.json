@@ -17,7 +17,7 @@
       "urlEnvironment": "ARIVISO_PLAYWRIGHT_TARBALL_URL"
     },
     "cli": {
-      "sha256": "cd057b393481d35d11282ce6b87d78fe48c2e98c6f2e56f2ab3ea32e2b51eddd",
+      "sha256": "7a161942a45601406cb6dbb55db3cda9da9cba5ad5f592a9c330e9573c67b3fa",
       "urlEnvironment": "ARIVISO_CLI_TARBALL_URL"
     }
   }

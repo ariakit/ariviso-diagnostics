@@ -22,7 +22,7 @@ concurrency:
 jobs:
   capture:
     if: vars.ARIVISO_DIAGNOSTIC_ENABLED == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
-    uses: ariakit/ariviso-diagnostics/.github/workflows/ariviso-capture.yml@d805beaa1ae980f5c2cf568b93b797bd4f0c5602
+    uses: ariakit/ariviso-diagnostics/.github/workflows/ariviso-capture.yml@dcf42788b6c284a1affb4d2df65954672b04bae0
     secrets:
       ARIVISO_PLAYWRIGHT_TARBALL_URL: ${{ secrets.ARIVISO_PLAYWRIGHT_TARBALL_URL }}
       ARIVISO_CLI_TARBALL_URL: ${{ secrets.ARIVISO_CLI_TARBALL_URL }}
