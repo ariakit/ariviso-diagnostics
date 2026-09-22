@@ -1,0 +1,2 @@
+Synthetic merge-queue fixture.
+This text is not application data.

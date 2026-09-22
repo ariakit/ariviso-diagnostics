@@ -1,0 +1,22 @@
+name: Fixture
+
+on:
+  pull_request:
+    branches: [main]
+  merge_group:
+    types: [checks_requested]
+
+permissions:
+  contents: read
+
+jobs:
+  fixture:
+    name: fixture
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Keep the merge group available for metadata queries
+        if: github.event_name == 'merge_group'
+        run: sleep 180
+      - name: Finish the synthetic check
+        run: printf '%s\n' 'Synthetic fixture check passed.'
