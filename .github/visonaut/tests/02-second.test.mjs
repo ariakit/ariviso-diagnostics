@@ -1,5 +1,5 @@
 import { test } from "@playwright/test";
-import { visual } from "@ariviso/playwright";
+import { visual } from "@visonaut/playwright";
 import { scenario, scene } from "./scenario.mjs";
 test("second synthetic card", async ({ page }, info) => {
   const candidate = await scenario();

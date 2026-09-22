@@ -1,6 +1,6 @@
-ariviso-harness/node_modules/
-.ariviso-results/
-.ariviso-packages/
-.ariviso-trusted/
-.ariviso-test-results/
-.github/ariviso/node_modules/
+visonaut-harness/node_modules/
+.visonaut-results/
+.visonaut-packages/
+.visonaut-trusted/
+.visonaut-test-results/
+.github/visonaut/node_modules/

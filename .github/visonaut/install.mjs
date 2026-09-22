@@ -3,7 +3,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { repositoryRoot, settings, sha256 } from "./identity.mjs";
 const config = await settings();
-const directory = path.join(repositoryRoot, ".ariviso-packages");
+const directory = path.join(repositoryRoot, ".visonaut-packages");
 await mkdir(directory, { recursive: true });
 const archives = [];
 for (const [name, artifact] of Object.entries(config.packages)) {

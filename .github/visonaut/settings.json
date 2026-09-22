@@ -1,0 +1,24 @@
+{
+  "repository": "ariakit/visonaut-diagnostics",
+  "repositoryId": "1380792062",
+  "workflow": ".github/workflows/visonaut-diagnostic.yml",
+  "server": "https://diagnostics.visonaut.com",
+  "planPath": ".github/visonaut-plan.json",
+  "comparisonEngineVersion": "rgba-visible-1",
+  "comparisonPolicy": {
+    "id": "visible-exact-v1",
+    "channelThreshold": 0,
+    "maxChangedPixels": 0,
+    "maxChangedRatio": 0
+  },
+  "packages": {
+    "playwright": {
+      "sha256": "c8a29f378176afc70d4387a46034145ce172740fe775740391ce0a69cce96149",
+      "urlEnvironment": "VISONAUT_PLAYWRIGHT_TARBALL_URL"
+    },
+    "cli": {
+      "sha256": "3d4e9c5f84bf401ddd8fd58b934b3cac8d5a212faf34bb14dd74cea02a532054",
+      "urlEnvironment": "VISONAUT_CLI_TARBALL_URL"
+    }
+  }
+}

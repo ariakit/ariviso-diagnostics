@@ -12,7 +12,7 @@ export const invocation = [
   "playwright",
   "test",
   "--config",
-  "ariviso-harness/playwright.config.mjs",
+  "visonaut-harness/playwright.config.mjs",
 ];
 export async function validatePlan(plan) {
   const config = await settings();

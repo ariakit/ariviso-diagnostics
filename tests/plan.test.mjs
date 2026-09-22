@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { collectionFor, executorDigest, settings } from "../.github/ariviso/identity.mjs";
-import { invocation, validatePlan } from "../.github/ariviso/plan.mjs";
+import { collectionFor, executorDigest, settings } from "../.github/visonaut/identity.mjs";
+import { invocation, validatePlan } from "../.github/visonaut/plan.mjs";
 async function plan() {
   const config = await settings();
   return {

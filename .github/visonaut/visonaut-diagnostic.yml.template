@@ -1,0 +1,28 @@
+name: Visonaut diagnostic
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review, edited]
+  merge_group:
+    types: [checks_requested]
+
+permissions:
+  contents: read
+  actions: read
+  id-token: write
+
+concurrency:
+  group: visonaut-diagnostic-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  capture:
+    if: vars.VISONAUT_DIAGNOSTIC_ENABLED == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    uses: ariakit/visonaut-diagnostics/.github/workflows/visonaut-capture.yml@0000000000000000000000000000000000000000
+    secrets:
+      VISONAUT_PLAYWRIGHT_TARBALL_URL: ${{ secrets.VISONAUT_PLAYWRIGHT_TARBALL_URL }}
+      VISONAUT_CLI_TARBALL_URL: ${{ secrets.VISONAUT_CLI_TARBALL_URL }}

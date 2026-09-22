@@ -3,7 +3,7 @@ import { realpathSync } from "node:fs";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 export const repositoryRoot = realpathSync(process.env.GITHUB_WORKSPACE ?? process.cwd());
-export const results = path.join(repositoryRoot, ".ariviso-results");
+export const results = path.join(repositoryRoot, ".visonaut-results");
 export const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
 export function canonicalJson(value) {
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
@@ -37,7 +37,7 @@ export async function executorDigest(directory = import.meta.dirname) {
   await visit();
   return digestJson(files);
 }
-export function shardIdentity(value = process.env.ARIVISO_SHARD) {
+export function shardIdentity(value = process.env.VISONAUT_SHARD) {
   const number = Number(value);
   if (number !== 1 && number !== 2) throw new Error("The trusted shard must be 1 or 2");
   return { key: `chromium-${number}`, number };
@@ -45,7 +45,7 @@ export function shardIdentity(value = process.env.ARIVISO_SHARD) {
 export function collectionFor(number) {
   return {
     projectName: "chromium",
-    testDir: "ariviso-harness/tests",
+    testDir: "visonaut-harness/tests",
     testMatch: ["**/*.test.mjs"],
     testIgnore: [],
     grep: [{ source: ".*", flags: "" }],

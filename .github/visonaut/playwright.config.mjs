@@ -31,18 +31,18 @@ export default defineConfig({
   workers: 1,
   retries: 1,
   repeatEach: 1,
-  testDir: path.join(repositoryRoot, "ariviso-harness/tests"),
+  testDir: path.join(repositoryRoot, "visonaut-harness/tests"),
   testMatch: ["**/*.test.mjs"],
   testIgnore: [],
   grep: /.*/,
   grepInvert: [],
   shard: { current: shard.number, total: 2 },
-  outputDir: path.join(repositoryRoot, ".ariviso-test-results"),
+  outputDir: path.join(repositoryRoot, ".visonaut-test-results"),
   reporter: [
     ["github"],
     ["dot"],
     [
-      "@ariviso/playwright/reporter",
+      "@visonaut/playwright/reporter",
       {
         outputFile: path.join(results, "manifest.json"),
         repositoryRoot,
@@ -62,7 +62,7 @@ export default defineConfig({
   projects: [
     {
       name: "chromium",
-      metadata: { ariviso: { profile: environment.profile } },
+      metadata: { visonaut: { profile: environment.profile } },
       use: {
         browserName: "chromium",
         viewport: { width: 160, height: 120 },

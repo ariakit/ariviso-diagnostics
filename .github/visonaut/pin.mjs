@@ -7,19 +7,19 @@ if (
   /^0+$/.test(commit) ||
   extra.length
 ) {
-  throw new Error("Usage: node .github/ariviso/pin.mjs source|workflow <full nonzero commit SHA>");
+  throw new Error("Usage: node .github/visonaut/pin.mjs source|workflow <full nonzero commit SHA>");
 }
 const file = new URL(
-  kind === "source" ? "../workflows/ariviso-capture.yml" : "../workflows/ariviso-diagnostic.yml",
+  kind === "source" ? "../workflows/visonaut-capture.yml" : "../workflows/visonaut-diagnostic.yml",
   import.meta.url,
 );
 const source =
-  kind === "workflow" ? new URL("ariviso-diagnostic.yml.template", import.meta.url) : file;
+  kind === "workflow" ? new URL("visonaut-diagnostic.yml.template", import.meta.url) : file;
 const before = await readFile(source, "utf8");
 const pattern =
   kind === "source"
-    ? /(?<=ARIVISO_EXECUTOR_SOURCE: ")[a-f0-9]{40}(?=")/g
-    : /(?<=uses: ariakit\/ariviso-diagnostics\/\.github\/workflows\/ariviso-capture\.yml@)[a-f0-9]{40}/g;
+    ? /(?<=VISONAUT_EXECUTOR_SOURCE: ")[a-f0-9]{40}(?=")/g
+    : /(?<=uses: ariakit\/visonaut-diagnostics\/\.github\/workflows\/visonaut-capture\.yml@)[a-f0-9]{40}/g;
 if ([...before.matchAll(pattern)].length !== 1) {
   throw new Error("The workflow must contain exactly one expected immutable pin");
 }
