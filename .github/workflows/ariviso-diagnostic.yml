@@ -1,28 +1,64 @@
-name: Ariviso diagnostic
+name: Ariviso OIDC rejection probes
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
-    types: [opened, synchronize, reopened, ready_for_review, edited]
-  merge_group:
-    types: [checks_requested]
+    paths:
+      - .github/oidc-probes/**
+      - .github/workflows/ariviso-oidc-negative.yml
 
 permissions:
   contents: read
-  actions: read
-  id-token: write
-
-concurrency:
-  group: ariviso-diagnostic-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
 
 jobs:
-  capture:
-    if: vars.ARIVISO_DIAGNOSTIC_ENABLED == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
-    uses: ariakit/ariviso-diagnostics/.github/workflows/ariviso-capture.yml@dcf42788b6c284a1affb4d2df65954672b04bae0
-    secrets:
-      ARIVISO_PLAYWRIGHT_TARBALL_URL: ${{ secrets.ARIVISO_PLAYWRIGHT_TARBALL_URL }}
-      ARIVISO_CLI_TARBALL_URL: ${{ secrets.ARIVISO_CLI_TARBALL_URL }}
+  helper-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            .github/oidc-probes
+            .github/workflows/ariviso-oidc-negative.yml
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24.18.0
+      - run: node --test .github/oidc-probes/probe.test.mjs
+
+  without-token:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/oidc-probes
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24.18.0
+      - run: node .github/oidc-probes/probe.mjs without-token
+
+  untrusted-job:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/oidc-probes
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24.18.0
+      - run: node .github/oidc-probes/probe.mjs with-token
