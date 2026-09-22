@@ -1,0 +1,12 @@
+{
+  "name": "ariviso-public-diagnostics",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@playwright/test": "1.63.0",
+    "pngjs": "7.0.0"
+  },
+  "engines": {
+    "node": "24.18.0"
+  }
+}

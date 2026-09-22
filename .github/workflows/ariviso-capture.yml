@@ -1,0 +1,83 @@
+name: Ariviso synthetic capture executor
+
+on:
+  workflow_call:
+    secrets:
+      ARIVISO_PLAYWRIGHT_TARBALL_URL:
+        required: true
+      ARIVISO_CLI_TARBALL_URL:
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  ARIVISO_EXECUTOR_SOURCE: "0000000000000000000000000000000000000000"
+
+jobs:
+  capture:
+    name: chromium-${{ matrix.shard }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+    env:
+      ARIVISO_SHARD: ${{ matrix.shard }}
+      ARIVISO_SERVER: https://ariviso-diagnostics.ariakit.workers.dev
+    steps:
+      - name: Read the immutable executor files
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: ariakit/ariviso-diagnostics
+          ref: ${{ env.ARIVISO_EXECUTOR_SOURCE }}
+          path: .ariviso-trusted
+          sparse-checkout: .github/ariviso
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24.18.0
+      - name: Install the fixed capture harness
+        run: |
+          rm -rf ariviso-harness .ariviso-results .ariviso-test-results
+          mkdir ariviso-harness
+          cp -R .ariviso-trusted/.github/ariviso/. ariviso-harness/
+      - run: npm ci --ignore-scripts --audit=false --fund=false
+        working-directory: ariviso-harness
+      - run: npx --no-install playwright install --with-deps chromium
+        working-directory: ariviso-harness
+      - name: Install the two reviewed client tarballs
+        env:
+          ARIVISO_PLAYWRIGHT_TARBALL_URL: ${{ secrets.ARIVISO_PLAYWRIGHT_TARBALL_URL }}
+          ARIVISO_CLI_TARBALL_URL: ${{ secrets.ARIVISO_CLI_TARBALL_URL }}
+        run: node ariviso-harness/install.mjs
+      - name: Measure the actual environment
+        run: node ariviso-harness/environment.mjs
+      - name: Bind the signed job and fetch only the tested synthetic scenario
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node ariviso-harness/context.mjs
+      - name: Run the full fixed shard
+        run: node ariviso-harness/node_modules/@playwright/test/cli.js test --config ariviso-harness/playwright.config.mjs
+      - name: Submit the complete shard
+        run: |
+          export PATH="$GITHUB_WORKSPACE/ariviso-harness/node_modules/.bin:$PATH"
+          ariviso upload --manifest .ariviso-results/manifest.json
+          ariviso finalize --manifest .ariviso-results/manifest.json
+      - name: Read the manifest-bound receipt
+        id: receipt
+        run: node ariviso-harness/receipt.mjs
+      - name: Bind the successful job to independent artifact metadata
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: ${{ steps.receipt.outputs.name }}
+          path: .ariviso-results/receipt.json
+          overwrite: false
+          retention-days: 7
+          include-hidden-files: true
+          if-no-files-found: error
