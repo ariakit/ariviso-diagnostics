@@ -22,7 +22,7 @@ concurrency:
 jobs:
   capture:
     if: vars.VISONAUT_DIAGNOSTIC_ENABLED == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
-    uses: ariakit/visonaut-diagnostics/.github/workflows/visonaut-capture.yml@a4917015ae9715a160fab6aceea1e5c82c8b27fa
+    uses: ariakit/visonaut-diagnostics/.github/workflows/visonaut-capture.yml@b37defd0ddcfabfce864511b31def1e9a27c67e3
     secrets:
       VISONAUT_PLAYWRIGHT_TARBALL_URL: ${{ secrets.VISONAUT_PLAYWRIGHT_TARBALL_URL }}
       VISONAUT_CLI_TARBALL_URL: ${{ secrets.VISONAUT_CLI_TARBALL_URL }}
