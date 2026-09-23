@@ -1,1 +1,1 @@
-{ "color": "green", "failSecondShardOnFirstAttempt": false, "retrySecondTestOnce": true }
+{ "color": "green", "failSecondShardOnFirstAttempt": true, "retrySecondTestOnce": true }
