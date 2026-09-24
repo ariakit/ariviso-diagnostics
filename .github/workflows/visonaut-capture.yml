@@ -95,7 +95,7 @@ jobs:
         run: |
           set -euo pipefail
           package="$RUNNER_TEMP/visonaut-capture/package"
-          mkdir -p visonaut-harness/node_modules/@visonaut
+          mkdir -p visonaut-harness/node_modules/@visonaut visonaut-harness/node_modules/@playwright
           ln -s "$package" visonaut-harness/node_modules/@visonaut/playwright
           ln -s "$package/ci/node_modules/@playwright/test" visonaut-harness/node_modules/@playwright/test
       - name: Install Chromium
