@@ -88,8 +88,8 @@ test("the public caller cannot choose a smaller capture plan", () => {
   assert.deepEqual(
     preview.map(({ command, cwd, url }) => ({ command, cwd, url })),
     [
-      { command: "pnpm run preview --port 4321", cwd: "app", url: "http://127.0.0.1:4321" },
-      { command: "pnpm -F nextjs exec opennextjs-cloudflare preview --port 3000 --inspector-port 9340", cwd: ".", url: "http://127.0.0.1:3000" },
+      { command: "pnpm run preview --port 4321", cwd: "app", url: "http://localhost:4321" },
+      { command: "pnpm -F nextjs exec opennextjs-cloudflare preview --port 3000 --inspector-port 9340", cwd: ".", url: "http://localhost:3000" },
     ],
   );
 });
