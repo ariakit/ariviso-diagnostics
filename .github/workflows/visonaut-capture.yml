@@ -12,9 +12,11 @@ permissions:
   contents: read
 
 env:
+  # Render and signed upload measure this immutable container image.
+  ImageVersion: playwright-v1.63.0-noble-bc6ab0d6d44ff4826e4cb8c1e6d801e185bfc42bb0753f8e2a30efc70db054c7
   VISONAUT_EXECUTOR_SOURCE: "0d4f4514344a18af703a5cb79287498d1607effc"
   VISONAUT_SERVER: https://diagnostics.visonaut.com
-  VISONAUT_PACKAGE_SHA256: 7be6fe091e8b95db733abc118e3dacc9d6d36575c5685c590e0cea9155494b72
+  VISONAUT_PACKAGE_SHA256: 8af1fa25b4a43693fdbfbe939810a0a08e551571bc2f4544879f013338ea5738
   VISONAUT_CLI_SHA256: 5d4cc8cbe135ce04aebbd793879a9f1afd53282cc58a6f8cbadf7236c65970e4
   VISONAUT_COMPARISON_POLICY_DIGEST: 395f2b596a2e9cf4f8ce86b8643c48856f326773becf337cee6e66faba289249
   VISONAUT_WEB_SERVERS: >-
@@ -24,6 +26,9 @@ jobs:
   render_first:
     name: render / chromium-1
     runs-on: ubuntu-24.04
+    container: &capture_container
+      image: mcr.microsoft.com/playwright@sha256:bc6ab0d6d44ff4826e4cb8c1e6d801e185bfc42bb0753f8e2a30efc70db054c7
+      options: --user 1001
     timeout-minutes: 20
     permissions:
       contents: read
@@ -98,8 +103,6 @@ jobs:
           mkdir -p visonaut-harness/node_modules/@visonaut visonaut-harness/node_modules/@playwright
           ln -s "$package" visonaut-harness/node_modules/@visonaut/playwright
           ln -s "$package/ci/node_modules/@playwright/test" visonaut-harness/node_modules/@playwright/test
-      - name: Install Chromium
-        run: node "$VISONAUT_PLAYWRIGHT_CLI" install --with-deps chromium
       - name: Render the complete fixed card shard without OIDC
         shell: bash
         run: |
@@ -128,6 +131,7 @@ jobs:
   render_second:
     name: render / chromium-2
     runs-on: ubuntu-24.04
+    container: *capture_container
     timeout-minutes: 20
     permissions:
       contents: read
@@ -140,6 +144,7 @@ jobs:
     name: capture / chromium-1
     needs: render_first
     runs-on: ubuntu-24.04
+    container: *capture_container
     timeout-minutes: 15
     permissions:
       actions: read
@@ -151,8 +156,6 @@ jobs:
         with:
           node-version: 24.18.0
       - *install_package
-      - name: Match the render job's system fonts
-        run: node "$VISONAUT_PLAYWRIGHT_CLI" install-deps chromium
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: visonaut-transfer-${{ env.VISONAUT_SHARD }}
@@ -181,6 +184,7 @@ jobs:
     name: capture / chromium-2
     needs: render_second
     runs-on: ubuntu-24.04
+    container: *capture_container
     timeout-minutes: 15
     permissions:
       actions: read
