@@ -124,7 +124,7 @@ test("render keeps candidate code separate from signed upload", () => {
 });
 
 test("the verified adapter and one Playwright runtime reach Ariakit tests", () => {
-  assert.match(workflow, /VISONAUT_PACKAGE_SHA256: 7be6fe091e8b95db733abc118e3dacc9d6d36575c5685c590e0cea9155494b72/);
+  assert.match(workflow, /VISONAUT_PACKAGE_SHA256: 8af1fa25b4a43693fdbfbe939810a0a08e551571bc2f4544879f013338ea5738/);
   assert.match(workflow, /VISONAUT_CLI_SHA256: 5d4cc8cbe135ce04aebbd793879a9f1afd53282cc58a6f8cbadf7236c65970e4/);
   assert.match(render, /shasum -a 256 "\$archive"/);
   assert.match(render, /npm ci --ignore-scripts --no-audit --no-fund/);
