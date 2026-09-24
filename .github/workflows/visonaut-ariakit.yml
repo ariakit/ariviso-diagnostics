@@ -1,0 +1,332 @@
+name: Visonaut Ariakit capture
+
+on:
+  workflow_call:
+    secrets:
+      VISONAUT_PLAYWRIGHT_TARBALL_URL:
+        required: true
+      VISONAUT_CLI_TARBALL_URL:
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  VISONAUT_SERVER: https://visonaut.com
+
+jobs:
+  build_app:
+    name: build / app
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: ./.github/workflows/setup
+        with:
+          filters: app...
+      - name: Build Astro preview
+        env:
+          CLOUDFLARE_ENV: preview
+        run: pnpm -F app run build
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: visonaut-app-build
+          path: |
+            app/dist
+            app/.wrangler/deploy/config.json
+          if-no-files-found: error
+          include-hidden-files: true
+          retention-days: 7
+
+  build_nextjs:
+    name: build / nextjs
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: ./.github/workflows/setup
+        with:
+          filters: app...
+      - name: Type check Next.js
+        run: pnpm -F nextjs run tsc
+      - name: Build Next.js preview
+        run: pnpm -F nextjs run build-worker
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: visonaut-nextjs-build
+          path: nextjs/.open-next
+          if-no-files-found: error
+          include-hidden-files: true
+          retention-days: 7
+
+  render_chrome:
+    name: render / ${{ matrix.shard }}
+    needs: [build_app, build_nextjs]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            shard: chrome
+            project: chrome
+            browser: chromium
+            device: Desktop Chrome
+            patterns: '["/test[^/]*-(chrome|browser)","/tests/[^/]*-(chrome|browser)"]'
+            retries: 1
+    steps: &render_steps
+      # Install the verified archives before candidate setup can change the job environment.
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24.18.0
+      - &install_package
+        name: Install the checksum-verified Visonaut capture runtime
+        shell: bash
+        env:
+          VISONAUT_PACKAGE_URL: ${{ secrets.VISONAUT_PLAYWRIGHT_TARBALL_URL }}
+          VISONAUT_CLI_URL: ${{ secrets.VISONAUT_CLI_TARBALL_URL }}
+          VISONAUT_PACKAGE_SHA256: f5c3f0e054bdfd35147e4d5b87e015a903d67bc5af93cad382851b8c4dd8ae9b
+          VISONAUT_CLI_SHA256: 5d4cc8cbe135ce04aebbd793879a9f1afd53282cc58a6f8cbadf7236c65970e4
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/visonaut-playwright.tgz"
+          directory="$RUNNER_TEMP/visonaut-capture"
+          curl --fail --silent --show-error --max-redirs 0 --retry 3 "$VISONAUT_PACKAGE_URL" --output "$archive"
+          actual="$(shasum -a 256 "$archive" | cut -d ' ' -f 1)"
+          if [ "$actual" != "$VISONAUT_PACKAGE_SHA256" ]; then
+            echo "::error::The Visonaut adapter checksum does not match"
+            exit 1
+          fi
+          mkdir -p "$directory"
+          tar -xzf "$archive" -C "$directory"
+          cp "$directory/package/ci/runtime-lock.json" "$directory/package/ci/package-lock.json"
+          (cd "$directory/package/ci" && npm ci --ignore-scripts --no-audit --no-fund)
+          cli_archive="$RUNNER_TEMP/visonaut-cli.tgz"
+          curl --fail --silent --show-error --max-redirs 0 --retry 3 "$VISONAUT_CLI_URL" --output "$cli_archive"
+          node "$directory/package/ci/bootstrap-cli.mjs" \
+            "$directory/package/ci" "$cli_archive" "$VISONAUT_CLI_SHA256" "0.2.0-preview.0"
+          echo "VISONAUT_CAPTURE_BIN=$directory/package/ci/bin.mjs" >> "$GITHUB_ENV"
+          echo "VISONAUT_PLAYWRIGHT_CLI=$directory/package/ci/node_modules/playwright/cli.js" >> "$GITHUB_ENV"
+          echo "VISONAUT_CLI_BIN=$directory/package/ci/node_modules/visonaut/dist/bin.js" >> "$GITHUB_ENV"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: ./.github/workflows/setup
+        with:
+          filters: app...
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: visonaut-app-build
+          path: app
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: visonaut-nextjs-build
+          path: nextjs/.open-next
+      - name: Use the pinned adapter and one Playwright test runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          package="$RUNNER_TEMP/visonaut-capture/package"
+          # Both workspace packages import Playwright through their own pnpm links.
+          for workspace in app packages/ariakit-test packages/ariakit-scripts; do
+            module="$workspace/node_modules/@playwright/test"
+            if [ ! -L "$module" ]; then
+              echo "::error::$module is not the expected pnpm link"
+              exit 1
+            fi
+            rm "$module"
+            ln -s "$package/ci/node_modules/@playwright/test" "$module"
+          done
+          module=app/node_modules/@visonaut/playwright
+          if [ ! -L "$module" ]; then
+            echo "::error::$module is not the expected pnpm link"
+            exit 1
+          fi
+          rm "$module"
+          ln -s "$package" "$module"
+      - name: Install the pinned Playwright browser
+        env:
+          VISONAUT_BROWSER: ${{ matrix.browser }}
+        run: node "$VISONAUT_PLAYWRIGHT_CLI" install --with-deps "$VISONAUT_BROWSER"
+      - name: Render the complete visual collection without OIDC
+        shell: bash
+        env:
+          VISONAUT_SHARD: ${{ matrix.shard }}
+          VISONAUT_PROJECT: ${{ matrix.project }}
+          VISONAUT_BROWSER: ${{ matrix.browser }}
+          VISONAUT_DEVICE: ${{ matrix.device }}
+          VISONAUT_TEST_PATTERNS: ${{ matrix.patterns }}
+          VISONAUT_RETRIES: ${{ matrix.retries }}
+          VISONAUT_PACKAGE_SHA256: f5c3f0e054bdfd35147e4d5b87e015a903d67bc5af93cad382851b8c4dd8ae9b
+          VISONAUT_COMPARISON_POLICY_DIGEST: 395f2b596a2e9cf4f8ce86b8643c48856f326773becf337cee6e66faba289249
+          VISONAUT_WEB_SERVERS: >-
+            [{"command":"pnpm run preview --port 4321","cwd":"app","url":"http://127.0.0.1:4321","timeout":120000,"env":{"APP_INSPECTOR_PORT":"9339","CLOUDFLARE_INCLUDE_PROCESS_ENV":"true","NEXTJS_PORT":"3000"}},{"command":"pnpm -F nextjs exec opennextjs-cloudflare preview --port 3000 --inspector-port 9340","cwd":".","url":"http://127.0.0.1:3000","timeout":120000}]
+        run: |
+          node "$VISONAUT_CAPTURE_BIN" render \
+            --repository-root "$GITHUB_WORKSPACE" \
+            --test-dir app/src \
+            --test-patterns "$VISONAUT_TEST_PATTERNS" \
+            --project "$VISONAUT_PROJECT" \
+            --browser "$VISONAUT_BROWSER" \
+            --device "$VISONAUT_DEVICE" \
+            --base-url http://localhost:4321 \
+            --shard "$VISONAUT_SHARD" \
+            --font-package @fontsource-variable/inter \
+            --comparison-policy-digest "$VISONAUT_COMPARISON_POLICY_DIGEST" \
+            --bundle-sha256 "$VISONAUT_PACKAGE_SHA256" \
+            --output "$RUNNER_TEMP/visonaut-$VISONAUT_SHARD.enc" \
+            --retries "$VISONAUT_RETRIES" \
+            --workers 4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: visonaut-transfer-${{ matrix.shard }}
+          path: ${{ runner.temp }}/visonaut-${{ matrix.shard }}.enc
+          if-no-files-found: error
+          overwrite: false
+          retention-days: 70
+
+  render_firefox:
+    name: render / ${{ matrix.shard }}
+    needs: [build_app, build_nextjs]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            shard: firefox
+            project: firefox
+            browser: firefox
+            device: Desktop Firefox
+            patterns: '["/test[^/]*-(firefox|browser)","/tests/[^/]*-(firefox|browser)"]'
+            retries: 2
+    steps: *render_steps
+
+  render_safari:
+    name: render / ${{ matrix.shard }}
+    needs: [build_app, build_nextjs]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    strategy:
+      matrix:
+        include:
+          - os: macos-latest
+            shard: safari
+            project: safari
+            browser: webkit
+            device: Desktop Safari
+            patterns: '["/test[^/]*-(safari|browser)","/tests/[^/]*-(safari|browser)"]'
+            retries: 3
+    steps: *render_steps
+
+  upload_chrome:
+    name: upload / ${{ matrix.shard }}
+    needs: render_chrome
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    permissions:
+      actions: read
+      id-token: write
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            shard: chrome
+            browser: chromium
+    steps: &upload_steps
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24.18.0
+      - *install_package
+      - name: Match the render job's system fonts
+        env:
+          VISONAUT_BROWSER: ${{ matrix.browser }}
+        run: node "$VISONAUT_PLAYWRIGHT_CLI" install-deps "$VISONAUT_BROWSER"
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: visonaut-transfer-${{ matrix.shard }}
+          path: ${{ runner.temp }}/visonaut-transfer
+      - name: Stage the signed visual collection
+        id: stage
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VISONAUT_SHARD: ${{ matrix.shard }}
+          VISONAUT_PACKAGE_SHA256: f5c3f0e054bdfd35147e4d5b87e015a903d67bc5af93cad382851b8c4dd8ae9b
+          VISONAUT_COMPARISON_POLICY_DIGEST: 395f2b596a2e9cf4f8ce86b8643c48856f326773becf337cee6e66faba289249
+        run: |
+          node "$VISONAUT_CAPTURE_BIN" upload \
+            --shard "$VISONAUT_SHARD" \
+            --font-package @fontsource-variable/inter \
+            --comparison-policy-digest "$VISONAUT_COMPARISON_POLICY_DIGEST" \
+            --bundle-sha256 "$VISONAUT_PACKAGE_SHA256" \
+            --input "$RUNNER_TEMP/visonaut-transfer/visonaut-$VISONAUT_SHARD.enc" \
+            --output-directory "$RUNNER_TEMP/visonaut-submission-$VISONAUT_SHARD"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: ${{ steps.stage.outputs.name }}
+          path: ${{ runner.temp }}/visonaut-submission-${{ matrix.shard }}/receipt.json
+          if-no-files-found: error
+          overwrite: false
+          retention-days: 7
+
+  upload_firefox:
+    name: upload / ${{ matrix.shard }}
+    needs: render_firefox
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    permissions:
+      actions: read
+      id-token: write
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            shard: firefox
+            browser: firefox
+    steps: *upload_steps
+
+  upload_safari:
+    name: upload / ${{ matrix.shard }}
+    needs: render_safari
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    permissions:
+      actions: read
+      id-token: write
+    strategy:
+      matrix:
+        include:
+          - os: macos-latest
+            shard: safari
+            browser: webkit
+    steps: *upload_steps
+
+  submit:
+    name: submit
+    needs: [upload_chrome, upload_firefox, upload_safari]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24.18.0
+      - *install_package
+      - name: Submit after every signed upload succeeds
+        run: node "$VISONAUT_CLI_BIN" submit --run "$GITHUB_RUN_ID"
