@@ -1,7 +1,7 @@
 import { test } from "@playwright/test";
 import { visual } from "@visonaut/playwright";
 import { scenario, scene } from "./scenario.mjs";
-test("second synthetic card", async ({ page }, info) => {
+test("@visual second synthetic card", async ({ page }, info) => {
   const candidate = await scenario();
   const retry = candidate.retrySecondTestOnce && info.retry === 0;
   await scene(page, retry ? "red" : candidate.color, true);
