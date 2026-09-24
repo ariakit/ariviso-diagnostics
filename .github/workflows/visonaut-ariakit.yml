@@ -95,7 +95,7 @@ jobs:
         env:
           VISONAUT_PACKAGE_URL: ${{ secrets.VISONAUT_PLAYWRIGHT_TARBALL_URL }}
           VISONAUT_CLI_URL: ${{ secrets.VISONAUT_CLI_TARBALL_URL }}
-          VISONAUT_PACKAGE_SHA256: f5c3f0e054bdfd35147e4d5b87e015a903d67bc5af93cad382851b8c4dd8ae9b
+          VISONAUT_PACKAGE_SHA256: 7be6fe091e8b95db733abc118e3dacc9d6d36575c5685c590e0cea9155494b72
           VISONAUT_CLI_SHA256: 5d4cc8cbe135ce04aebbd793879a9f1afd53282cc58a6f8cbadf7236c65970e4
         run: |
           set -euo pipefail
@@ -167,7 +167,7 @@ jobs:
           VISONAUT_DEVICE: ${{ matrix.device }}
           VISONAUT_TEST_PATTERNS: ${{ matrix.patterns }}
           VISONAUT_RETRIES: ${{ matrix.retries }}
-          VISONAUT_PACKAGE_SHA256: f5c3f0e054bdfd35147e4d5b87e015a903d67bc5af93cad382851b8c4dd8ae9b
+          VISONAUT_PACKAGE_SHA256: 7be6fe091e8b95db733abc118e3dacc9d6d36575c5685c590e0cea9155494b72
           VISONAUT_COMPARISON_POLICY_DIGEST: 395f2b596a2e9cf4f8ce86b8643c48856f326773becf337cee6e66faba289249
           VISONAUT_WEB_SERVERS: >-
             [{"command":"pnpm run preview --port 4321","cwd":"app","url":"http://127.0.0.1:4321","timeout":120000,"env":{"APP_INSPECTOR_PORT":"9339","CLOUDFLARE_INCLUDE_PROCESS_ENV":"true","NEXTJS_PORT":"3000"}},{"command":"pnpm -F nextjs exec opennextjs-cloudflare preview --port 3000 --inspector-port 9340","cwd":".","url":"http://127.0.0.1:3000","timeout":120000}]
@@ -266,7 +266,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           VISONAUT_SHARD: ${{ matrix.shard }}
-          VISONAUT_PACKAGE_SHA256: f5c3f0e054bdfd35147e4d5b87e015a903d67bc5af93cad382851b8c4dd8ae9b
+          VISONAUT_PACKAGE_SHA256: 7be6fe091e8b95db733abc118e3dacc9d6d36575c5685c590e0cea9155494b72
           VISONAUT_COMPARISON_POLICY_DIGEST: 395f2b596a2e9cf4f8ce86b8643c48856f326773becf337cee6e66faba289249
         run: |
           node "$VISONAUT_CAPTURE_BIN" upload \
