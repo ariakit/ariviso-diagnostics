@@ -81,7 +81,7 @@ test("only the tested scenario is fetched and no candidate tooling file enters t
   }
 });
 
-test("the OIDC workflow checks out only the pinned trusted executor", async () => {
+test("render and signed upload keep the pinned executor and artifact boundary", async () => {
   const workflow = await readFile(
     new URL("../.github/workflows/visonaut-capture.yml", import.meta.url),
     "utf8",
@@ -94,7 +94,40 @@ test("the OIDC workflow checks out only the pinned trusted executor", async () =
   assert.match(checkouts[0][1], /ref: \$\{\{ env\.VISONAUT_EXECUTOR_SOURCE \}\}/);
   assert.match(checkouts[0][1], /path: \.visonaut-trusted/);
   assert.doesNotMatch(workflow, /ref: \$\{\{ github\.sha \}\}/);
-  assert.equal([...workflow.matchAll(/GH_TOKEN: \$\{\{ github\.token \}\}/g)].length, 1);
+  const render = workflow.split("\n  render_first:")[1]?.split("\n  render_second:")[0];
+  const secondRender = workflow.split("\n  render_second:")[1]?.split("\n  capture_first:")[0];
+  const upload = workflow.split("\n  capture_first:")[1]?.split("\n  capture_second:")[0];
+  const secondUpload = workflow.split("\n  capture_second:")[1]?.split("\n  submit:")[0];
+  const submit = workflow.split("\n  submit:\n")[1];
+  assert.ok(render);
+  assert.ok(secondRender);
+  assert.ok(upload);
+  assert.ok(secondUpload);
+  assert.ok(submit);
+  assert.match(render, /permissions:\n      contents: read/);
+  assert.doesNotMatch(render, /id-token: write/);
+  assert.match(render, /GH_TOKEN: \$\{\{ github\.token \}\}/);
+  assert.match(secondRender, /permissions:\n      contents: read/);
+  assert.doesNotMatch(secondRender, /id-token: write/);
+  assert.match(secondRender, /steps: \*render_steps/);
+  assert.match(upload, /permissions:\n      actions: read\n      id-token: write/);
+  assert.match(upload, /GH_TOKEN: \$\{\{ github\.token \}\}/);
+  assert.match(secondUpload, /permissions:\n      actions: read\n      id-token: write/);
+  assert.match(secondUpload, /steps: \*capture_steps/);
+  const transferRetention = Number(render.match(/retention-days: (\d+)/)?.[1]);
+  assert.ok(transferRetention >= 70);
+  assert.match(submit, /needs: \[capture_first, capture_second\]/);
+  assert.match(submit, /permissions:\n      id-token: write/);
+  assert.match(submit, /node "\$VISONAUT_CLI_BIN" submit --run "\$GITHUB_RUN_ID"/);
+  const artifactPaths = [
+    ...workflow.matchAll(
+      /- uses: actions\/upload-artifact@[^\n]+\n\s+with:\n\s+name: [^\n]+\n\s+path: ([^\n]+)/g,
+    ),
+  ].map((match) => match[1]);
+  assert.deepEqual(artifactPaths, [
+    "${{ runner.temp }}/visonaut-${{ env.VISONAUT_SHARD }}.enc",
+    "${{ runner.temp }}/visonaut-submission-${{ env.VISONAUT_SHARD }}/receipt.json",
+  ]);
 });
 
 test("unknown scenario fields, nested values and invalid primitive values fail closed", () => {

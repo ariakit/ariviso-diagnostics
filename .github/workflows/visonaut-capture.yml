@@ -1,4 +1,4 @@
-name: Visonaut synthetic capture executor
+name: Visonaut signed synthetic capture
 
 on:
   workflow_call:
@@ -12,26 +12,40 @@ permissions:
   contents: read
 
 env:
-  VISONAUT_EXECUTOR_SOURCE: "756a5225af9bbcd466ef56d56abdee2843b897c9"
+  VISONAUT_EXECUTOR_SOURCE: "0d4f4514344a18af703a5cb79287498d1607effc"
+  VISONAUT_SERVER: https://diagnostics.visonaut.com
+  VISONAUT_PACKAGE_SHA256: 3c463739ac7cae36617a5a97d45030361e943d2a6d4fbb6f31e1cedeefcc9367
+  VISONAUT_CLI_SHA256: 5d4cc8cbe135ce04aebbd793879a9f1afd53282cc58a6f8cbadf7236c65970e4
+  VISONAUT_COMPARISON_POLICY_DIGEST: 395f2b596a2e9cf4f8ce86b8643c48856f326773becf337cee6e66faba289249
+  VISONAUT_WEB_SERVERS: >-
+    [{"command":"node visonaut-harness/server.mjs","cwd":".","url":"http://127.0.0.1:4399","timeout":10000}]
 
 jobs:
-  capture:
-    name: chromium-${{ matrix.shard }}
+  render_first:
+    name: render / chromium-1
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
       contents: read
-      actions: read
-      id-token: write
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: [1, 2]
     env:
-      VISONAUT_SHARD: ${{ matrix.shard }}
-      VISONAUT_SERVER: https://diagnostics.visonaut.com
-    steps:
-      - name: Read the immutable executor files
+      VISONAUT_SHARD: chromium-1
+      VISONAUT_TEST_PATTERNS: '["01-first\\.test\\.mjs$"]'
+    steps: &render_steps
+      - name: Check the package and source pins
+        shell: bash
+        run: |
+          set -euo pipefail
+          for digest in "$VISONAUT_PACKAGE_SHA256" "$VISONAUT_CLI_SHA256" "$VISONAUT_COMPARISON_POLICY_DIGEST"; do
+            if [[ ! "$digest" =~ ^[0-9a-f]{64}$ ]]; then
+              echo "::error::A Visonaut input is not pinned to SHA-256"
+              exit 1
+            fi
+          done
+          if [[ ! "$VISONAUT_EXECUTOR_SOURCE" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::The synthetic harness is not pinned to a commit"
+            exit 1
+          fi
+      - name: Read only the immutable synthetic harness
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ariakit/visonaut-diagnostics
@@ -42,50 +56,150 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 24.18.0
-      - name: Install the fixed capture harness
-        run: |
-          rm -rf visonaut-harness .visonaut-results .visonaut-test-results
-          mkdir visonaut-harness
-          cp -R .visonaut-trusted/.github/visonaut/. visonaut-harness/
-      - run: npm ci --ignore-scripts --audit=false --fund=false
-        working-directory: visonaut-harness
-      - run: npx --no-install playwright install --with-deps chromium
-        working-directory: visonaut-harness
-      - name: Install the two reviewed client tarballs
-        env:
-          VISONAUT_PLAYWRIGHT_TARBALL_URL: ${{ secrets.VISONAUT_PLAYWRIGHT_TARBALL_URL }}
-          VISONAUT_CLI_TARBALL_URL: ${{ secrets.VISONAUT_CLI_TARBALL_URL }}
-        run: node visonaut-harness/install.mjs
-      - name: Measure the actual environment
-        run: node visonaut-harness/environment.mjs
-      - name: Preserve the measured runner profile
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: visonaut-environment-chromium-${{ matrix.shard }}-${{ github.run_attempt }}
-          path: .visonaut-results/environment-chromium-${{ matrix.shard }}.json
-          retention-days: 7
-          include-hidden-files: true
-          if-no-files-found: error
-      - name: Bind the signed job and fetch only the tested synthetic scenario
+      - name: Copy the fixed harness and fetch the tested synthetic scenario
         env:
           GH_TOKEN: ${{ github.token }}
-        run: node visonaut-harness/context.mjs
-      - name: Run the full fixed shard
-        run: node visonaut-harness/node_modules/@playwright/test/cli.js test --config visonaut-harness/playwright.config.mjs
-      - name: Submit the complete shard
         run: |
-          export PATH="$GITHUB_WORKSPACE/visonaut-harness/node_modules/.bin:$PATH"
-          visonaut upload --manifest .visonaut-results/manifest.json
-          visonaut finalize --manifest .visonaut-results/manifest.json
-      - name: Read the manifest-bound receipt
-        id: receipt
-        run: node visonaut-harness/receipt.mjs
-      - name: Bind the successful job to independent artifact metadata
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+          mkdir visonaut-harness
+          cp -R .visonaut-trusted/.github/visonaut/. visonaut-harness/
+          node visonaut-harness/prepare.mjs
+      - &install_package
+        name: Install the checksum-verified Visonaut package
+        shell: bash
+        env:
+          VISONAUT_PACKAGE_URL: ${{ secrets.VISONAUT_PLAYWRIGHT_TARBALL_URL }}
+          VISONAUT_CLI_URL: ${{ secrets.VISONAUT_CLI_TARBALL_URL }}
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/visonaut-playwright.tgz"
+          directory="$RUNNER_TEMP/visonaut-capture"
+          curl --fail --silent --show-error --max-redirs 0 --retry 3 "$VISONAUT_PACKAGE_URL" --output "$archive"
+          actual="$(shasum -a 256 "$archive" | cut -d ' ' -f 1)"
+          if [ "$actual" != "$VISONAUT_PACKAGE_SHA256" ]; then
+            echo "::error::The Visonaut package checksum does not match"
+            exit 1
+          fi
+          mkdir -p "$directory"
+          tar -xzf "$archive" -C "$directory"
+          cp "$directory/package/ci/runtime-lock.json" "$directory/package/ci/package-lock.json"
+          (cd "$directory/package/ci" && npm ci --ignore-scripts --no-audit --no-fund)
+          cli_archive="$RUNNER_TEMP/visonaut-cli.tgz"
+          curl --fail --silent --show-error --max-redirs 0 "$VISONAUT_CLI_URL" --output "$cli_archive"
+          node "$directory/package/ci/bootstrap-cli.mjs" \
+            "$directory/package/ci" "$cli_archive" "$VISONAUT_CLI_SHA256" "0.2.0-preview.0"
+          echo "VISONAUT_CAPTURE_BIN=$directory/package/ci/bin.mjs" >> "$GITHUB_ENV"
+          echo "VISONAUT_PLAYWRIGHT_CLI=$directory/package/ci/node_modules/playwright/cli.js" >> "$GITHUB_ENV"
+          echo "VISONAUT_CLI_BIN=$directory/package/ci/node_modules/visonaut/dist/bin.js" >> "$GITHUB_ENV"
+      - name: Resolve only reviewed test dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          package="$RUNNER_TEMP/visonaut-capture/package"
+          mkdir -p visonaut-harness/node_modules/@visonaut
+          ln -s "$package" visonaut-harness/node_modules/@visonaut/playwright
+          ln -s "$package/ci/node_modules/@playwright/test" visonaut-harness/node_modules/@playwright/test
+      - name: Install Chromium
+        run: node "$VISONAUT_PLAYWRIGHT_CLI" install --with-deps chromium
+      - name: Render the complete fixed card shard without OIDC
+        shell: bash
+        run: |
+          node "$VISONAUT_CAPTURE_BIN" render \
+            --repository-root "$GITHUB_WORKSPACE" \
+            --test-dir visonaut-harness/tests \
+            --test-patterns "$VISONAUT_TEST_PATTERNS" \
+            --project chromium \
+            --browser chromium \
+            --device "Desktop Chrome" \
+            --base-url http://127.0.0.1:4399 \
+            --shard "$VISONAUT_SHARD" \
+            --comparison-policy-digest "$VISONAUT_COMPARISON_POLICY_DIGEST" \
+            --bundle-sha256 "$VISONAUT_PACKAGE_SHA256" \
+            --output "$RUNNER_TEMP/visonaut-$VISONAUT_SHARD.enc" \
+            --retries 1 \
+            --workers 1
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: ${{ steps.receipt.outputs.name }}
-          path: .visonaut-results/receipt.json
+          name: visonaut-transfer-${{ env.VISONAUT_SHARD }}
+          path: ${{ runner.temp }}/visonaut-${{ env.VISONAUT_SHARD }}.enc
+          if-no-files-found: error
+          overwrite: false
+          retention-days: 70
+
+  render_second:
+    name: render / chromium-2
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    env:
+      VISONAUT_SHARD: chromium-2
+      VISONAUT_TEST_PATTERNS: '["02-second\\.test\\.mjs$"]'
+    steps: *render_steps
+
+  capture_first:
+    name: capture / chromium-1
+    needs: render_first
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      actions: read
+      id-token: write
+    env:
+      VISONAUT_SHARD: chromium-1
+    steps: &capture_steps
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24.18.0
+      - *install_package
+      - name: Match the render job's system fonts
+        run: node "$VISONAUT_PLAYWRIGHT_CLI" install-deps chromium
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: visonaut-transfer-${{ env.VISONAUT_SHARD }}
+          path: ${{ runner.temp }}/visonaut-transfer
+      - name: Stage the signed card shard
+        id: upload
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          node "$VISONAUT_CAPTURE_BIN" upload \
+            --shard "$VISONAUT_SHARD" \
+            --comparison-policy-digest "$VISONAUT_COMPARISON_POLICY_DIGEST" \
+            --bundle-sha256 "$VISONAUT_PACKAGE_SHA256" \
+            --input "$RUNNER_TEMP/visonaut-transfer/visonaut-$VISONAUT_SHARD.enc" \
+            --output-directory "$RUNNER_TEMP/visonaut-submission-$VISONAUT_SHARD"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: ${{ steps.upload.outputs.name }}
+          path: ${{ runner.temp }}/visonaut-submission-${{ env.VISONAUT_SHARD }}/receipt.json
+          if-no-files-found: error
           overwrite: false
           retention-days: 7
-          include-hidden-files: true
-          if-no-files-found: error
+
+  capture_second:
+    name: capture / chromium-2
+    needs: render_second
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      actions: read
+      id-token: write
+    env:
+      VISONAUT_SHARD: chromium-2
+    steps: *capture_steps
+
+  submit:
+    name: submit
+    needs: [capture_first, capture_second]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24.18.0
+      - *install_package
+      - name: Submit only after both signed capture jobs succeed
+        run: node "$VISONAUT_CLI_BIN" submit --run "$GITHUB_RUN_ID"
